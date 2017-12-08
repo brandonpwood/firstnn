@@ -17,10 +17,11 @@ class nn1():
     def __init__(self, layer_size):
 
         # Meta Parameters
-        self.trainingRate = .5
+        self.trainingRate = .3
         self.normalScale = 1
         self.maxSteps = 100000
         self.minErr = .00005
+        self.momentum = 0
 
         # Layer Info
         self.layerCount = len(layer_size) - 1
@@ -32,6 +33,7 @@ class nn1():
 
         # Weights
         self.weights = []
+        self._previousWeightDelta = []
         self.transform_shape()
         self.init_weights()
 
@@ -44,7 +46,7 @@ class nn1():
     def init_weights(self):
         for x, y in self.transformed:
             self.weights.append(np.random.normal(scale  = self.normalScale, size = (y, x + 1))) # Add 1 for biases
-
+            self._previousWeightDelta.append(np.zeros([y, x + 1]))
     # Transfer Functions
 
     def sigmoid(self, x):
@@ -107,9 +109,13 @@ class nn1():
             else:
                 layerOutput = np.vstack([self._layerOutput[index - 1], np.ones([1, self._layerOutput[index - 1].shape[1]])])
 
-            weightDelta = np.sum(layerOutput[None, :, :].transpose(2, 0, 1) * delta[delta_index][None, :, :].transpose(2, 1, 0), axis = 0)
+            curWeightDelta = np.sum(layerOutput[None, :, :].transpose(2, 0, 1) * delta[delta_index][None, :, :].transpose(2, 1, 0), axis = 0)
 
-            self.weights[index] -= self.trainingRate*weightDelta
+            weightDelta = self.trainingRate*curWeightDelta + self.momentum*self._previousWeightDelta[index]
+            self.weights[index] -= weightDelta
+
+            self._previousWeightDelta[index] = weightDelta
+
         return error
 
     # Utilities
@@ -124,8 +130,7 @@ class nn1():
         print([x.shape for x in self._delta])
 
     def learn(self, inputs, targets):
-
-        for i in range(self.maxSteps - 1):
+        for i in range(self.maxSteps):
             e = n.backpropagate(inputs, targets)
             if e < self.minErr:
                 print("Mininum Error Achieved at:", i)
@@ -138,6 +143,6 @@ class nn1():
 
 if __name__ == '__main__':
     n = nn1((2, 2, 1))
-    inputs = np.array([[1, 1], [0, 0], [1, 0], [0, 1]])
+    inputs = np.array([[1, 0], [0, 1], [1, 1], [0, 0]])
     targets = np.array([[.95], [.95], [0.05], [0.05]])
     n.learn(inputs, targets)
